@@ -34,9 +34,10 @@ export class RelayShieldApi implements ICredentialType {
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: 'https://atq6wtkp6k.execute-api.us-east-1.amazonaws.com/prod',
-			url: '/v1/intel/cve',
-			method: 'GET',
-			qs: { keyword: 'test' },
+			url: '/v1/metered/breach',
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: { email: 'test@example.com' },
 		},
 	};
 }
