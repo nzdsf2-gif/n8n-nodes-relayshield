@@ -66,12 +66,6 @@ class RelayShield {
                             action: 'Detect sim swap or port out fraud on a phone number',
                         },
                         {
-                            name: 'Threat Intelligence — CVE Lookup',
-                            value: 'intelCve',
-                            description: 'Query the CISA Known Exploited Vulnerabilities catalog, cross-referenced for ransomware activity',
-                            action: 'Look up a CVE or keyword in the CISA KEV catalog',
-                        },
-                        {
                             name: 'Threat Intelligence — IOC Lookup',
                             value: 'intelTelegram',
                             description: 'Query RelayShield\'s live IOC database (criminal Telegram channels, ThreatFox, URLhaus) for a domain, IP, email, phone, or wallet address',
@@ -159,47 +153,6 @@ class RelayShield {
                     },
                     description: 'Type of indicator being queried',
                 },
-                // ----------------------------------------------------------------
-                // CVE Lookup
-                // ----------------------------------------------------------------
-                {
-                    displayName: 'Lookup By',
-                    name: 'cveLookupBy',
-                    type: 'options',
-                    options: [
-                        { name: 'CVE ID', value: 'cve_id' },
-                        { name: 'Keyword', value: 'keyword' },
-                    ],
-                    default: 'cve_id',
-                    required: true,
-                    displayOptions: {
-                        show: { operation: ['intelCve'] },
-                    },
-                },
-                {
-                    displayName: 'CVE ID',
-                    name: 'cveId',
-                    type: 'string',
-                    placeholder: 'CVE-2024-1234',
-                    default: '',
-                    required: true,
-                    displayOptions: {
-                        show: { operation: ['intelCve'], cveLookupBy: ['cve_id'] },
-                    },
-                    description: 'CVE identifier to look up (e.g. CVE-2024-12345)',
-                },
-                {
-                    displayName: 'Keyword',
-                    name: 'cveKeyword',
-                    type: 'string',
-                    placeholder: 'apache, exchange, citrix...',
-                    default: '',
-                    required: true,
-                    displayOptions: {
-                        show: { operation: ['intelCve'], cveLookupBy: ['keyword'] },
-                    },
-                    description: 'Vendor, product, or vulnerability keyword to search in CISA KEV',
-                },
             ],
         };
     }
@@ -235,18 +188,7 @@ class RelayShield {
                 else if (operation === 'intelTelegram') {
                     const indicator = this.getNodeParameter('indicator', i);
                     const type = this.getNodeParameter('indicatorType', i);
-                    responseData = await relayShieldGet(this, `/v1/intel/telegram?indicator=${encodeURIComponent(indicator)}&type=${type}`, apiKey);
-                }
-                else if (operation === 'intelCve') {
-                    const lookupBy = this.getNodeParameter('cveLookupBy', i);
-                    if (lookupBy === 'cve_id') {
-                        const cveId = this.getNodeParameter('cveId', i);
-                        responseData = await relayShieldGet(this, `/v1/intel/cve?cve_id=${encodeURIComponent(cveId)}`, apiKey);
-                    }
-                    else {
-                        const keyword = this.getNodeParameter('cveKeyword', i);
-                        responseData = await relayShieldGet(this, `/v1/intel/cve?keyword=${encodeURIComponent(keyword)}`, apiKey);
-                    }
+                    responseData = await relayShieldPost(this, '/v1/intel/telegram', { indicator, type }, apiKey);
                 }
                 else {
                     throw new n8n_workflow_1.NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });
