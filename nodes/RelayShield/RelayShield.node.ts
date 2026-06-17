@@ -253,18 +253,3 @@ async function relayShieldPost(
 	return response.json();
 }
 
-async function relayShieldGet(
-	ctx: IExecuteFunctions,
-	pathWithQuery: string,
-	apiKey: string,
-): Promise<unknown> {
-	const response = await fetch(`${API_BASE}${pathWithQuery}`, {
-		method: 'GET',
-		headers: { 'X-RS-API-KEY': apiKey },
-	});
-	if (!response.ok) {
-		const text = await response.text();
-		throw new NodeApiError(ctx.getNode(), { message: `RelayShield API error ${response.status}: ${text}` } as never);
-	}
-	return response.json();
-}

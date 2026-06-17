@@ -225,15 +225,4 @@ async function relayShieldPost(ctx, path, body, apiKey) {
     }
     return response.json();
 }
-async function relayShieldGet(ctx, pathWithQuery, apiKey) {
-    const response = await fetch(`${API_BASE}${pathWithQuery}`, {
-        method: 'GET',
-        headers: { 'X-RS-API-KEY': apiKey },
-    });
-    if (!response.ok) {
-        const text = await response.text();
-        throw new n8n_workflow_1.NodeApiError(ctx.getNode(), { message: `RelayShield API error ${response.status}: ${text}` });
-    }
-    return response.json();
-}
 //# sourceMappingURL=RelayShield.node.js.map
