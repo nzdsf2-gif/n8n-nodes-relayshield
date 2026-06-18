@@ -188,7 +188,7 @@ class RelayShield {
                 else if (operation === 'intelTelegram') {
                     const indicator = this.getNodeParameter('indicator', i);
                     const type = this.getNodeParameter('indicatorType', i);
-                    responseData = await relayShieldPost(this, '/v1/intel/telegram', { indicator, type }, apiKey);
+                    responseData = await relayShieldPost(this, '/v1/intel/telegram', { [type]: indicator, type }, apiKey);
                 }
                 else {
                     throw new n8n_workflow_1.NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, { itemIndex: i });

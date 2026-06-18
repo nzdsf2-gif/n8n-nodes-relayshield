@@ -205,7 +205,7 @@ export class RelayShield implements INodeType {
 					responseData = await relayShieldPost(
 						this,
 						'/v1/intel/telegram',
-						{ indicator, type },
+						{ [type]: indicator, type },
 						apiKey,
 					);
 
