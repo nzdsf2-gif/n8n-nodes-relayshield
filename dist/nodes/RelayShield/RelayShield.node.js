@@ -12,7 +12,7 @@ class RelayShield {
             group: ['transform'],
             version: 1,
             subtitle: '={{$parameter["operation"]}}',
-            description: 'Breach detection, SIM swap monitoring, infostealer exposure, domain lookalike scanning, and threat intelligence IOC lookup via RelayShield.',
+            description: 'Breach detection, SIM swap monitoring, infostealer exposure, domain lookalike scanning, supply chain risk, active session hijack detection, and threat intelligence via RelayShield.',
             defaults: {
                 name: 'RelayShield',
             },
@@ -54,10 +54,34 @@ class RelayShield {
                             action: 'Check an email for infostealer log exposure',
                         },
                         {
-                            name: 'OAuth Watchlist Check',
+                            name: 'OAuth & Token Exposure Check',
                             value: 'oauthWatchlist',
-                            description: 'Check if a breach exposes credentials used with high-risk OAuth apps',
-                            action: 'Check an email for o auth supply chain exposure',
+                            description: 'Check HIBP breach history against 31 OAuth apps + live INTEL-5 stealer corpus for stolen tokens across cloud consoles, CI/CD, and SaaS tools',
+                            action: 'Check an email for OAuth and stolen token exposure',
+                        },
+                        {
+                            name: 'Session Hijack Detection',
+                            value: 'sessionRisk',
+                            description: 'Detect stolen active session cookies in RelayShield INTEL-5 corpus — identifies AiTM attacks that bypass 2FA without needing the password',
+                            action: 'Check an email for active session hijack risk',
+                        },
+                        {
+                            name: 'Supply Chain Risk',
+                            value: 'supplyChain',
+                            description: 'Check vendor domains for breach exposure and infostealer hits — returns per-domain risk score (CRITICAL / HIGH / MEDIUM / LOW)',
+                            action: 'Check vendor domains for supply chain identity risk',
+                        },
+                        {
+                            name: 'Identity Correlation',
+                            value: 'identityGraph',
+                            description: 'Link an email to associated phone numbers and domains seen alongside it in criminal channel dumps — pivot from one compromised identifier to find all others',
+                            action: 'Find identifiers correlated with a compromised email',
+                        },
+                        {
+                            name: 'Ransomware Risk',
+                            value: 'ransomwareRisk',
+                            description: 'Check a domain against 100+ active ransomware group victim lists and pre-ransomware credential corpus',
+                            action: 'Check a domain for ransomware victim listing or pre-ransomware exposure',
                         },
                         {
                             name: 'SIM Swap Detection',
@@ -91,9 +115,49 @@ class RelayShield {
                     default: '',
                     required: true,
                     displayOptions: {
-                        show: { operation: ['breach', 'infostealer', 'oauthWatchlist'] },
+                        show: { operation: ['breach', 'infostealer', 'oauthWatchlist', 'sessionRisk', 'identityGraph'] },
                     },
                     description: 'Email address to check',
+                },
+                // ----------------------------------------------------------------
+                // Ransomware Risk — domain
+                // ----------------------------------------------------------------
+                {
+                    displayName: 'Domain',
+                    name: 'ransomwareDomain',
+                    type: 'string',
+                    placeholder: 'acme.com',
+                    default: '',
+                    required: true,
+                    displayOptions: {
+                        show: { operation: ['ransomwareRisk'] },
+                    },
+                    description: 'Domain to check against ransomware victim lists (e.g. acme.com)',
+                },
+                // ----------------------------------------------------------------
+                // Supply Chain — vendor domains / emails
+                // ----------------------------------------------------------------
+                {
+                    displayName: 'Vendor Domains',
+                    name: 'vendorDomains',
+                    type: 'string',
+                    placeholder: 'acme.com, widget.io',
+                    default: '',
+                    displayOptions: {
+                        show: { operation: ['supplyChain'] },
+                    },
+                    description: 'Comma-separated vendor domains to check (e.g. acme.com, vendor.io). Max 10 per call.',
+                },
+                {
+                    displayName: 'Vendor Emails (optional)',
+                    name: 'vendorEmails',
+                    type: 'string',
+                    placeholder: 'alice@acme.com, bob@vendor.io',
+                    default: '',
+                    displayOptions: {
+                        show: { operation: ['supplyChain'] },
+                    },
+                    description: 'Comma-separated vendor email addresses — domains are extracted automatically. Can be used instead of or alongside Vendor Domains.',
                 },
                 // ----------------------------------------------------------------
                 // SIM Swap — phone
@@ -232,6 +296,31 @@ class RelayShield {
                     const email = this.getNodeParameter('email', i);
                     responseData = await relayShieldPost(this, '/v1/metered/oauth-watchlist', { email }, apiKey);
                 }
+                else if (operation === 'sessionRisk') {
+                    const email = this.getNodeParameter('email', i);
+                    responseData = await relayShieldPost(this, '/v1/metered/session-risk', { email }, apiKey);
+                }
+                else if (operation === 'identityGraph') {
+                    const email = this.getNodeParameter('email', i);
+                    responseData = await relayShieldPost(this, '/v1/metered/identity-graph', { email }, apiKey);
+                }
+                else if (operation === 'ransomwareRisk') {
+                    const domain = this.getNodeParameter('ransomwareDomain', i);
+                    responseData = await relayShieldPost(this, '/v1/metered/ransomware-risk', { domain }, apiKey);
+                }
+                else if (operation === 'supplyChain') {
+                    const rawDomains = this.getNodeParameter('vendorDomains', i).trim();
+                    const rawEmails = this.getNodeParameter('vendorEmails', i).trim();
+                    const body = {};
+                    if (rawDomains)
+                        body.vendor_domains = rawDomains.split(',').map((d) => d.trim()).filter(Boolean);
+                    if (rawEmails)
+                        body.vendor_emails = rawEmails.split(',').map((e) => e.trim()).filter(Boolean);
+                    if (!body.vendor_domains && !body.vendor_emails) {
+                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Supply Chain Risk requires at least one Vendor Domain or Vendor Email', { itemIndex: i });
+                    }
+                    responseData = await relayShieldPostJson(this, '/v1/metered/supply-chain', body, apiKey);
+                }
                 else if (operation === 'intelTelegram') {
                     const indicator = this.getNodeParameter('indicator', i);
                     const type = this.getNodeParameter('indicatorType', i);
@@ -269,6 +358,10 @@ exports.RelayShield = RelayShield;
 // HTTP helpers — pass IExecuteFunctions for proper NodeApiError context
 // ---------------------------------------------------------------------------
 async function relayShieldPost(ctx, path, body, apiKey) {
+    return relayShieldPostJson(ctx, path, body, apiKey);
+}
+// Generic POST helper — accepts any JSON-serialisable body (strings, arrays, etc.)
+async function relayShieldPostJson(ctx, path, body, apiKey) {
     const response = await fetch(`${API_BASE}${path}`, {
         method: 'POST',
         headers: {

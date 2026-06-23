@@ -6,7 +6,7 @@ class RelayShieldApi {
         this.name = 'relayShieldApi';
         this.displayName = 'RelayShield API';
         this.icon = 'file:relayshield.svg';
-        this.documentationUrl = 'https://api.relayshield.net/developers';
+        this.documentationUrl = 'https://api.relayshield.net/developers?source=n8n';
         this.properties = [
             {
                 displayName: 'API Key',
